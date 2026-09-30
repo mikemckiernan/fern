@@ -18,6 +18,7 @@ import {
     TranslationConfig,
     VersionAvailability
 } from "./schemas/index.js";
+import type { VersionSubstitutions } from "./substitutions.js";
 
 export interface ParsedCustomPageAction {
     title: string;
@@ -266,6 +267,8 @@ export interface VersionInfo
      * branch's fern folder.
      */
     contentSource: VersionContentSource | undefined;
+    /** Where this version's pages take their `${name}` substitution values from. */
+    substitutions: VersionSubstitutions;
 }
 
 /**
