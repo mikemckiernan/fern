@@ -77,9 +77,10 @@ jobs:
             --target "${GITHUB_SHA}" \
             --prerelease \
             --title "fern-api ${{ steps.version.outputs.version }}" \
-            --notes "Patched Fern CLI built from ${GITHUB_SHA}.
-
-Install:
-    npm i -g https://github.com/${GITHUB_REPOSITORY}/releases/download/${{ steps.version.outputs.tag }}/${tarball}
-Run:
-    FERN_NO_VERSION_REDIRECTION=true fern --version"
+            --notes "$(printf '%s\n' \
+              "Patched Fern CLI built from ${GITHUB_SHA}." \
+              "" \
+              "Install:" \
+              "    npm i -g https://github.com/${GITHUB_REPOSITORY}/releases/download/${{ steps.version.outputs.tag }}/${tarball}" \
+              "Run:" \
+              "    FERN_NO_VERSION_REDIRECTION=true fern --version")"
