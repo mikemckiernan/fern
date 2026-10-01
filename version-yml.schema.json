@@ -26,6 +26,20 @@
     },
     "navigation": {
       "$ref": "#/definitions/docs.NavigationConfig"
+    },
+    "substitutions": {
+      "oneOf": [
+        {
+          "type": "object",
+          "additionalProperties": {
+            "type": "string"
+          }
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "description": "Text substitutions for the markdown/MDX pages of this version, including code\nblocks. Each `${name}` expression is replaced with the value for `name`. A page\nresolves names in this order: this map, then the top-level `substitutions` map\nof docs.yml, then environment variables when `settings.substitute-env-vars` is\ntrue. An expression whose name is not defined by any source fails the build.\nUse \\$\\{name\\} to escape and output literal ${name} without substitution.\n\nFor a version built from a git `ref`, the version file and docs.yml at that ref\nsupply the values; the current branch's docs.yml is not consulted, so a tagged\nrelease keeps the values it shipped with.\n\nExample:\n```yaml\nsubstitutions:\n  version: v26.3.1\n  recommended: \"580.65.06\"\n```"
     }
   },
   "required": [

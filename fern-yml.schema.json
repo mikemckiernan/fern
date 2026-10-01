@@ -2111,6 +2111,15 @@
             }
           ]
         },
+        "substitutions": {
+          "type": "object",
+          "propertyNames": {
+            "type": "string"
+          },
+          "additionalProperties": {
+            "type": "string"
+          }
+        },
         "check": {
           "type": "object",
           "properties": {
