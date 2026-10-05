@@ -803,11 +803,13 @@ function parseSizeConfig(sizeAsString: string | undefined): CjsFdrSdk.docs.v1.co
 
 async function loadWorkingTreeVersion({
     version,
+    productFileSubstitutions,
     absolutePathToFernFolder,
     context,
     folderTitleSource
 }: {
     version: docsYml.RawSchemas.VersionConfig;
+    productFileSubstitutions: Record<string, string> | undefined;
     absolutePathToFernFolder: AbsoluteFilePath;
     context: TaskContext;
     folderTitleSource?: docsYml.RawSchemas.TitleSource;
@@ -862,7 +864,12 @@ async function loadWorkingTreeVersion({
         featureFlags: convertFeatureFlag(version.featureFlag),
         announcement: version.announcement,
         contentSource: undefined,
-        substitutions: { versionFile: versionResult.substitutions, docsConfig: undefined, ref: undefined }
+        substitutions: {
+            versionFile: versionResult.substitutions,
+            productFile: productFileSubstitutions,
+            docsConfig: undefined,
+            ref: undefined
+        }
     };
 }
 
@@ -912,6 +919,7 @@ async function loadRefVersion({
         },
         substitutions: {
             versionFile: contentRoot.versionFileSubstitutions,
+            productFile: contentRoot.productFileSubstitutions,
             docsConfig: contentRoot.docsSubstitutionConfig,
             ref: materialized.ref
         }
@@ -921,6 +929,7 @@ async function loadRefVersion({
 async function getVersionedNavigationConfiguration({
     versions,
     refScope,
+    productFileSubstitutions,
     absolutePathToFernFolder,
     context,
     folderTitleSource,
@@ -928,6 +937,8 @@ async function getVersionedNavigationConfiguration({
 }: {
     versions: docsYml.RawSchemas.VersionConfig[];
     refScope: RefVersionScope;
+    /** The current branch's product file `substitutions`, for working-tree versions under a product. */
+    productFileSubstitutions: Record<string, string> | undefined;
     absolutePathToFernFolder: AbsoluteFilePath;
     context: TaskContext;
     parentSlug?: string;
@@ -939,7 +950,13 @@ async function getVersionedNavigationConfiguration({
         const ref = getVersionContentRef(version);
         if (ref == null) {
             versionedNavbars.push(
-                await loadWorkingTreeVersion({ version, absolutePathToFernFolder, context, folderTitleSource })
+                await loadWorkingTreeVersion({
+                    version,
+                    productFileSubstitutions,
+                    absolutePathToFernFolder,
+                    context,
+                    folderTitleSource
+                })
             );
             continue;
         }
@@ -1061,6 +1078,7 @@ async function getNavigationConfiguration({
                     navigation = await getVersionedNavigationConfiguration({
                         versions: product.versions,
                         refScope: { type: "product", displayName: product.displayName, slug: product.slug },
+                        productFileSubstitutions: result.substitutions,
                         absolutePathToFernFolder,
                         context,
                         folderTitleSource,
@@ -1090,7 +1108,8 @@ async function getNavigationConfiguration({
                     viewers: parseRoles(product.viewers),
                     orphaned: product.orphaned,
                     featureFlags: convertFeatureFlag(product.featureFlag),
-                    announcement: product.announcement
+                    announcement: product.announcement,
+                    substitutions: result.substitutions
                 });
             } else if ("href" in product && product.href != null) {
                 productNavbars.push({

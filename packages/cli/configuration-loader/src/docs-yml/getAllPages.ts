@@ -70,8 +70,9 @@ export function getAllPages({
 export type GetPageSubstituter = (file?: AbsoluteFilePath) => docsYml.PageSubstituter;
 
 /**
- * Builds one {@link docsYml.PageSubstituter} per version (plus one for pages outside any
- * version) and returns a lookup from page path to the substituter that applies to it.
+ * Builds one {@link docsYml.PageSubstituter} per version and per unversioned product (plus
+ * one for pages outside both) and returns a lookup from page path to the substituter that
+ * applies to it.
  */
 export function createPageSubstituters({
     navigation,
@@ -86,13 +87,34 @@ export function createPageSubstituters({
 }): GetPageSubstituter {
     const siteSubstituter = docsYml.createPageSubstituter(undefined, siteConfig, context, { preview });
     const byPage = new Map<AbsoluteFilePath, docsYml.PageSubstituter>();
-    for (const version of getAllVersions(navigation)) {
-        const substituter = docsYml.createPageSubstituter(version.substitutions, siteConfig, context, { preview });
-        for (const page of getAllPages({ landingPage: version.landingPage, navigation: version.navigation })) {
+    const setSubstituter = (pages: AbsoluteFilePath[], substituter: docsYml.PageSubstituter) => {
+        for (const page of pages) {
             byPage.set(page, substituter);
         }
+    };
+    for (const version of getAllVersions(navigation)) {
+        setSubstituter(
+            getAllPages({ landingPage: version.landingPage, navigation: version.navigation }),
+            docsYml.createPageSubstituter(version.substitutions, siteConfig, context, { preview })
+        );
+    }
+    for (const product of getUnversionedProducts(navigation)) {
+        setSubstituter(
+            getAllPages({ landingPage: product.landingPage, navigation: product.navigation }),
+            docsYml.createProductPageSubstituter(product.substitutions, siteConfig, context, { preview })
+        );
     }
     return (file) => (file != null ? byPage.get(file) : undefined) ?? siteSubstituter;
+}
+
+function getUnversionedProducts(navigation: docsYml.DocsNavigationConfiguration): docsYml.InternalProduct[] {
+    if (navigation.type !== "productgroup") {
+        return [];
+    }
+    return navigation.products.filter(
+        (product): product is docsYml.InternalProduct =>
+            product.type === "internal" && product.navigation.type !== "versioned"
+    );
 }
 
 function getAllVersions(navigation: docsYml.DocsNavigationConfiguration): docsYml.VersionInfo[] {

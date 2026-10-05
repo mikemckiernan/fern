@@ -65,8 +65,9 @@ export function applyDocsSubstitutions<T>(
 
 /**
  * Where the pages of one version take their substitution values from. Names resolve in
- * order: the version file's `substitutions`, then the docs.yml `substitutions`, then the
- * environment when that docs.yml enables `settings.substitute-env-vars`.
+ * order: the version file's `substitutions`, then the product file's `substitutions` for a
+ * version under `products[]`, then the docs.yml `substitutions`, then the environment when
+ * that docs.yml enables `settings.substitute-env-vars`.
  *
  * A working-tree version leaves `docsConfig` undefined and uses the current docs.yml; a
  * git-ref-backed version carries the docs.yml at the ref, so the current branch never
@@ -75,6 +76,8 @@ export function applyDocsSubstitutions<T>(
 export interface VersionSubstitutions {
     /** The `substitutions` map of the version file, highest precedence. */
     versionFile: Record<string, string> | undefined;
+    /** The `substitutions` map of the product file, for a version under `products[]`. */
+    productFile?: Record<string, string> | undefined;
     /** The docs.yml that shipped with the version's pages; undefined for the current docs.yml. */
     docsConfig: DocsSubstitutionConfig | undefined;
     /** The git ref the version is built from, or undefined for the working tree. */
@@ -83,6 +86,12 @@ export interface VersionSubstitutions {
 
 /** Resolves every `${name}` in page text against the sources of one version (or of the site). */
 export type PageSubstituter = (content: string) => string;
+
+/** A config file whose `substitutions` map takes precedence over docs.yml for its pages. */
+interface SubstitutionFile {
+    label: "version file" | "product file";
+    substitutions: Record<string, string> | undefined;
+}
 
 /**
  * Builds the substituter for the pages of one version, so the source chain is built once
@@ -94,34 +103,76 @@ export function createPageSubstituter(
     versionSubstitutions: VersionSubstitutions | undefined,
     siteConfig: DocsSubstitutionConfig,
     context: DocsSubstitutionContext,
-    { preview = false }: DocsSubstitutionOptions = {}
+    options: DocsSubstitutionOptions = {}
 ): PageSubstituter {
-    const versionFile = versionSubstitutions?.versionFile;
-    const docsConfig = versionSubstitutions?.docsConfig ?? siteConfig;
-    if (!preview && versionFile == null && !hasDocsSubstitutions(docsConfig)) {
+    if (versionSubstitutions == null) {
+        return createFileSubstituter([], siteConfig, undefined, context, options);
+    }
+    const files: SubstitutionFile[] = [{ label: "version file", substitutions: versionSubstitutions.versionFile }];
+    if (versionSubstitutions.productFile != null) {
+        files.push({ label: "product file", substitutions: versionSubstitutions.productFile });
+    }
+    return createFileSubstituter(
+        files,
+        versionSubstitutions.docsConfig ?? siteConfig,
+        versionSubstitutions.ref,
+        context,
+        options
+    );
+}
+
+/**
+ * Builds the substituter for the pages of a product without versions: the product file's
+ * `substitutions` first, then `siteConfig`.
+ */
+export function createProductPageSubstituter(
+    productFile: Record<string, string> | undefined,
+    siteConfig: DocsSubstitutionConfig,
+    context: DocsSubstitutionContext,
+    options: DocsSubstitutionOptions = {}
+): PageSubstituter {
+    return createFileSubstituter(
+        [{ label: "product file", substitutions: productFile }],
+        siteConfig,
+        undefined,
+        context,
+        options
+    );
+}
+
+function createFileSubstituter(
+    files: SubstitutionFile[],
+    docsConfig: DocsSubstitutionConfig,
+    ref: string | undefined,
+    context: DocsSubstitutionContext,
+    { preview = false }: DocsSubstitutionOptions
+): PageSubstituter {
+    const fileSources = files.flatMap((file) =>
+        file.substitutions != null ? [mapSubstitutionSource(file.substitutions)] : []
+    );
+    if (!preview && fileSources.length === 0 && !hasDocsSubstitutions(docsConfig)) {
         return (content) => content;
     }
     const readEnv = docsConfig.settings?.substituteEnvVars === true;
-    const source =
-        versionFile != null
-            ? chainSubstitutionSources(mapSubstitutionSource(versionFile), createDocsSubstitutionSource(docsConfig))
-            : createDocsSubstitutionSource(docsConfig);
-    const options = {
+    const source = chainSubstitutionSources(...fileSources, createDocsSubstitutionSource(docsConfig));
+    const substituteOptions = {
         undefinedAsEmpty: preview && !readEnv,
         undefinedMessage: (name: string) =>
-            versionSubstitutions == null
+            files.length === 0
                 ? undefinedSubstitutionMessage(docsConfig, name)
-                : undefinedVersionSubstitutionMessage(versionSubstitutions.ref, docsConfig, name)
+                : undefinedFileSubstitutionMessage(files, ref, docsConfig, name)
     };
-    return (content) => substituteText(content, source, context, options);
+    return (content) => substituteText(content, source, context, substituteOptions);
 }
 
-function undefinedVersionSubstitutionMessage(
+function undefinedFileSubstitutionMessage(
+    files: SubstitutionFile[],
     ref: string | undefined,
     docsConfig: DocsSubstitutionConfig,
     name: string
 ): string {
-    const where = ref == null ? "the version file or docs.yml" : `the version file or docs.yml at git ref '${ref}'`;
+    const sources = `the ${files.map((file) => file.label).join(", ")} or docs.yml`;
+    const where = ref == null ? sources : `${sources} at git ref '${ref}'`;
     return docsConfig.settings?.substituteEnvVars === true
         ? `Substitution ${name} is not defined in ${where} or the environment.`
         : `Substitution ${name} is not defined in ${where}.`;

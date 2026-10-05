@@ -1,0 +1,8 @@
+# yaml-language-server: $schema=../../../../../fern-changes-yml.schema.json
+
+- summary: |
+    Product files (`products[].path`) accept an optional `substitutions` map. It applies to the product's
+    pages after the version file's `substitutions` and before the top-level docs.yml `substitutions`, so
+    a file that serves as both a product file and a version file can declare its values once. Versions
+    built from a git `ref` resolve against the product file at that ref.
+  type: feat

@@ -1,0 +1,6 @@
+substitutions:
+  product: Confidential Computing
+
+navigation:
+  - page: Overview
+    path: ../pages/overview.mdx

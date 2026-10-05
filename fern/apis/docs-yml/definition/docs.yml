@@ -2717,3 +2717,23 @@ types:
       tabs: optional<map<TabId, TabConfig>>
       landing-page: optional<PageConfiguration>
       navigation: NavigationConfig
+      substitutions:
+        type: optional<map<string, string>>
+        docs: |
+          Text substitutions for the markdown/MDX pages of this product, including code
+          blocks. Each `${name}` expression is replaced with the value for `name`. A page
+          resolves names in this order: the `substitutions` map of its version file when the
+          product is versioned, then this map, then the top-level `substitutions` map of
+          docs.yml, then environment variables when `settings.substitute-env-vars` is true.
+          An expression whose name is not defined by any source fails the build.
+          Use \$\{name\} to escape and output literal ${name} without substitution.
+
+          For a version built from a git `ref`, the product file, version file and docs.yml
+          at that ref supply the values, so a tagged release keeps the values it shipped with.
+
+          Example:
+          ```yaml
+          substitutions:
+            kata_version: "4.0.0"
+            trustee_version: v0.21.0
+          ```

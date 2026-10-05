@@ -305,6 +305,8 @@ export interface InternalProduct
     icon: string | AbsoluteFilePath;
     image: AbsoluteFilePath | undefined;
     announcement: AnnouncementConfig | undefined;
+    /** The `substitutions` map of the product file, for the product's pages. */
+    substitutions: Record<string, string> | undefined;
 }
 
 export interface ExternalProduct

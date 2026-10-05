@@ -1,0 +1,19 @@
+instances:
+  - url: ferndevtest.docs.dev.buildwithfern.com
+
+title: Confidential Computing
+
+substitutions:
+  vendor: NVIDIA
+
+products:
+  - display-name: Containers
+    path: products/containers/current.yml
+    slug: containers
+    versions:
+      - display-name: Dev
+        path: products/containers/current.yml
+        slug: dev
+  - display-name: Overview
+    path: products/overview.yml
+    slug: overview

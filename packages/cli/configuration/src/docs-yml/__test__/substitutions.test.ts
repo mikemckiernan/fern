@@ -4,6 +4,7 @@ import {
     applyDocsSubstitutions,
     createDocsSubstitutionSource,
     createPageSubstituter,
+    createProductPageSubstituter,
     hasDocsSubstitutions
 } from "../substitutions.js";
 
@@ -240,6 +241,64 @@ describe("docs.yml substitutions", () => {
             expect(onError).toHaveBeenCalledWith(
                 `Substitution ${ENV_NAME} is not defined in the version file or docs.yml at git ref 'v1.0.0'.`
             );
+        });
+
+        it("resolves the product file between the version file and docs.yml", () => {
+            const onError = vi.fn();
+
+            const result = createPageSubstituter(
+                {
+                    versionFile: { version: "v1.0.0" },
+                    productFile: { version: "v0.9.0", product: "Widget", codename: "Bolt" },
+                    docsConfig: undefined,
+                    ref: undefined
+                },
+                { substitutions: { product: "Gadget", codename: "Spark", suffix: "GA" } },
+                { onError }
+            )(`${page} \${codename} \${suffix}`);
+
+            expect(onError).not.toHaveBeenCalled();
+            expect(result).toEqual("Release v1.0.0 of Widget, escaped ${HOME} Bolt GA");
+        });
+
+        it("names the product file when a version under a product cannot resolve a name", () => {
+            const onError = vi.fn();
+
+            createPageSubstituter(
+                {
+                    versionFile: undefined,
+                    productFile: { product: "Widget" },
+                    docsConfig: { substitutions: {} },
+                    ref: "v1.0.0"
+                },
+                {},
+                { onError }
+            )(page);
+
+            expect(onError).toHaveBeenCalledWith(
+                "Substitution version is not defined in the version file, product file or docs.yml at git ref 'v1.0.0'."
+            );
+        });
+
+        it("resolves the pages of an unversioned product against the product file, then docs.yml", () => {
+            const onError = vi.fn();
+
+            const result = createProductPageSubstituter(
+                { version: "v1.0.0" },
+                { substitutions: { version: "v2.0.0", product: "Widget" } },
+                { onError }
+            )(`${page} \${missing}`);
+
+            expect(result).toEqual("Release v1.0.0 of Widget, escaped ${HOME} ");
+            expect(onError).toHaveBeenCalledWith(
+                "Substitution missing is not defined in the product file or docs.yml."
+            );
+        });
+
+        it("returns unversioned product content unchanged when no source is configured", () => {
+            const onError = vi.fn();
+            expect(createProductPageSubstituter(undefined, {}, { onError })(page)).toBe(page);
+            expect(onError).not.toHaveBeenCalled();
         });
 
         it("resolves undefined names to empty strings in preview mode", () => {

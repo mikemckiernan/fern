@@ -72,6 +72,58 @@ describe("validate", () => {
         expect(stripAnsi(stdout)).toContain("All checks passed");
     }, 90_000);
 
+    it("check resolves product-file substitutions for versioned and unversioned products", async ({ signal }) => {
+        const { exitCode, stdout } = await runFernCli(["check"], {
+            cwd: path.join(FIXTURES_DIR, "docs-product-substitutions"),
+            reject: false,
+            signal
+        });
+
+        expect(exitCode).toBe(0);
+        expect(stripAnsi(stdout)).toContain("All checks passed");
+    }, 90_000);
+
+    it("check fails when a product page uses a name defined in neither the product file nor docs.yml", async ({
+        signal
+    }) => {
+        const fixture = await createTempFixture({
+            "fern/fern.config.json": FERN_CONFIG_JSON,
+            "fern/docs.yml": `instances:
+  - url: test.docs.buildwithfern.com
+
+title: Release
+
+products:
+  - display-name: Widget
+    path: products/widget.yml
+    slug: widget
+`,
+            "fern/products/widget.yml": `substitutions:
+  version: v1.0.0
+
+navigation:
+  - page: Home
+    path: home.mdx
+`,
+            "fern/products/home.mdx": "# Home \${version} \${codename}\n"
+        });
+
+        try {
+            const { exitCode, stdout, stderr } = await runFernCli(["check"], {
+                cwd: fixture.path,
+                reject: false,
+                signal
+            });
+
+            expect(exitCode).not.toBe(0);
+            expect(stripAnsi(stdout + stderr)).toContain(
+                "Substitution codename is not defined in the product file or docs.yml."
+            );
+        } finally {
+            await fixture.cleanup();
+        }
+    }, 90_000);
+
     it("check fails when a version page uses a name defined in neither the version file nor docs.yml", async ({
         signal
     }) => {
