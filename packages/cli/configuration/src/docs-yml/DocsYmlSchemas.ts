@@ -1009,7 +1009,8 @@ export const VersionConfig = WithPermissions.merge(WithFeatureFlags).merge(
 export const VersionFileConfig = z.object({
     tabs: z.record(TabId, TabConfig).optional(),
     "landing-page": PageConfiguration.optional(),
-    navigation: NavigationConfig
+    navigation: NavigationConfig,
+    substitutions: z.record(z.string(), z.string()).optional()
 });
 
 // ===== Product schemas =====
@@ -1059,7 +1060,8 @@ export const ProductPath = z.union([RelativeProductPath, AbsoluteProductPath]);
 export const ProductFileConfig = z.object({
     tabs: z.record(TabId, TabConfig).optional(),
     "landing-page": PageConfiguration.optional(),
-    navigation: NavigationConfig
+    navigation: NavigationConfig,
+    substitutions: z.record(z.string(), z.string()).optional()
 });
 
 // ===== Translations =====
@@ -1123,6 +1125,7 @@ export const DocsConfiguration = z.object({
     agents: AgentsConfig.optional(),
     metadata: MetadataConfig.optional(),
     redirects: RedirectsConfiguration.optional(),
+    substitutions: z.record(z.string(), z.string()).optional(),
     check: CheckConfig.optional(),
     logo: LogoConfiguration.optional(),
     favicon: z.string().optional(),

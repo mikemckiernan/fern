@@ -26,6 +26,12 @@ export interface ResolvedRefContentRoot {
     navigation: docsYml.RawSchemas.NavigationConfig;
     absoluteFilepathToConfig: AbsoluteFilePath;
     rawLibraries: Record<string, docsYml.RawSchemas.LibraryConfiguration> | undefined;
+    /** The `substitutions` map of the selected version file at the ref, if any. */
+    versionFileSubstitutions: Record<string, string> | undefined;
+    /** The `substitutions` map of the product file at the ref, for a product-scoped version. */
+    productFileSubstitutions: Record<string, string> | undefined;
+    /** The substitution configuration of the docs.yml at the ref. */
+    docsSubstitutionConfig: docsYml.DocsSubstitutionConfig;
 }
 
 async function loadYamlFile(absoluteFilepath: AbsoluteFilePath, context: TaskContext): Promise<unknown> {
@@ -47,10 +53,14 @@ async function loadYamlFile(absoluteFilepath: AbsoluteFilePath, context: TaskCon
 async function readVersionFile({
     absoluteFilepathToConfig,
     rawLibraries,
+    productFileSubstitutions,
+    docsSubstitutionConfig,
     context
 }: {
     absoluteFilepathToConfig: AbsoluteFilePath;
     rawLibraries: Record<string, docsYml.RawSchemas.LibraryConfiguration> | undefined;
+    productFileSubstitutions: Record<string, string> | undefined;
+    docsSubstitutionConfig: docsYml.DocsSubstitutionConfig;
     context: TaskContext;
 }): Promise<ResolvedRefContentRoot> {
     const parsed = docsYml.RawSchemas.Serializer.VersionFileConfig.parseOrThrow(
@@ -61,7 +71,10 @@ async function readVersionFile({
         landingPage: parsed.landingPage,
         navigation: parsed.navigation,
         absoluteFilepathToConfig,
-        rawLibraries
+        rawLibraries,
+        versionFileSubstitutions: parsed.substitutions,
+        productFileSubstitutions,
+        docsSubstitutionConfig
     };
 }
 
@@ -123,6 +136,10 @@ export async function resolveRefContentRoot({
         await loadYamlFile(refDocsConfigPath, context)
     );
     const rawLibraries = refDocsConfig.libraries;
+    const docsSubstitutionConfig: docsYml.DocsSubstitutionConfig = {
+        substitutions: refDocsConfig.substitutions,
+        settings: refDocsConfig.settings
+    };
 
     const describeRef = `git ref '${materialized.ref}' (${materialized.sha})`;
 
@@ -149,24 +166,29 @@ export async function resolveRefContentRoot({
                 code: CliError.Code.ConfigError
             });
         }
+        const absoluteFilepathToProductFile = resolve(refFernFolder, RelativeFilePath.of(product.path));
+        const productFile = docsYml.RawSchemas.Serializer.ProductFileConfig.parseOrThrow(
+            await loadYamlFile(absoluteFilepathToProductFile, context)
+        );
         const productVersionPath = getWorkingTreeVersionPath(product.versions);
         if (productVersionPath != null) {
             return readVersionFile({
                 absoluteFilepathToConfig: resolve(refFernFolder, RelativeFilePath.of(productVersionPath)),
                 rawLibraries,
+                productFileSubstitutions: productFile.substitutions,
+                docsSubstitutionConfig,
                 context
             });
         }
-        const absoluteFilepathToProductFile = resolve(refFernFolder, RelativeFilePath.of(product.path));
-        const productFile = docsYml.RawSchemas.Serializer.ProductFileConfig.parseOrThrow(
-            await loadYamlFile(absoluteFilepathToProductFile, context)
-        );
         return {
             tabs: productFile.tabs,
             landingPage: productFile.landingPage,
             navigation: productFile.navigation,
             absoluteFilepathToConfig: absoluteFilepathToProductFile,
-            rawLibraries
+            rawLibraries,
+            versionFileSubstitutions: undefined,
+            productFileSubstitutions: productFile.substitutions,
+            docsSubstitutionConfig
         };
     }
 
@@ -175,6 +197,8 @@ export async function resolveRefContentRoot({
         return readVersionFile({
             absoluteFilepathToConfig: resolve(refFernFolder, RelativeFilePath.of(siteVersionPath)),
             rawLibraries,
+            productFileSubstitutions: undefined,
+            docsSubstitutionConfig,
             context
         });
     }
@@ -185,7 +209,10 @@ export async function resolveRefContentRoot({
             landingPage: undefined,
             navigation: refDocsConfig.navigation,
             absoluteFilepathToConfig: refDocsConfigPath,
-            rawLibraries
+            rawLibraries,
+            versionFileSubstitutions: undefined,
+            productFileSubstitutions: undefined,
+            docsSubstitutionConfig
         };
     }
 

@@ -26,6 +26,20 @@
     },
     "navigation": {
       "$ref": "#/definitions/docs.NavigationConfig"
+    },
+    "substitutions": {
+      "oneOf": [
+        {
+          "type": "object",
+          "additionalProperties": {
+            "type": "string"
+          }
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "description": "Text substitutions for the markdown/MDX pages of this product, including code\nblocks. Each `${name}` expression is replaced with the value for `name`. A page\nresolves names in this order: the `substitutions` map of its version file when the\nproduct is versioned, then this map, then the top-level `substitutions` map of\ndocs.yml, then environment variables when `settings.substitute-env-vars` is true.\nAn expression whose name is not defined by any source fails the build.\nUse \\$\\{name\\} to escape and output literal ${name} without substitution.\n\nFor a version built from a git `ref`, the product file, version file and docs.yml\nat that ref supply the values, so a tagged release keeps the values it shipped with.\n\nExample:\n```yaml\nsubstitutions:\n  kata_version: \"4.0.0\"\n  trustee_version: v0.21.0\n```"
     }
   },
   "required": [

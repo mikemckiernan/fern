@@ -19,6 +19,7 @@ import {
     TranslationConfig,
     VersionAvailability
 } from "./schemas/index.js";
+import type { VersionSubstitutions } from "./substitutions.js";
 
 export interface ParsedCustomPageAction {
     title: string;
@@ -267,6 +268,8 @@ export interface VersionInfo
      * branch's fern folder.
      */
     contentSource: VersionContentSource | undefined;
+    /** Where this version's pages take their `${name}` substitution values from. */
+    substitutions: VersionSubstitutions;
 }
 
 /**
@@ -302,6 +305,8 @@ export interface InternalProduct
     icon: string | AbsoluteFilePath;
     image: AbsoluteFilePath | undefined;
     announcement: AnnouncementConfig | undefined;
+    /** The `substitutions` map of the product file, for the product's pages. */
+    substitutions: Record<string, string> | undefined;
 }
 
 export interface ExternalProduct

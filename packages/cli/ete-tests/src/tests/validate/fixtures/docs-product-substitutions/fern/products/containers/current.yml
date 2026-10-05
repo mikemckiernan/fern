@@ -1,0 +1,7 @@
+substitutions:
+  kata_version: "4.0.0"
+  trustee_version: v0.21.0
+
+navigation:
+  - page: Installation
+    path: ../../pages/containers/install.mdx
