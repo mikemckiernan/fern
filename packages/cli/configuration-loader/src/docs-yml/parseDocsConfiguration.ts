@@ -133,7 +133,8 @@ export async function parseDocsConfiguration({
                         ? context.logger.error(message ?? "Unknown error during text substitution")
                         : context.failAndThrow(message, undefined, { code: CliError.Code.ConfigError })
             },
-            preview
+            preview,
+            onSharedPage: (message) => context.logger.warn(message)
         });
         return (file, content) => getPageSubstituter(file)(content);
     });
@@ -1144,6 +1145,7 @@ async function getNavigationConfiguration({
         return await getVersionedNavigationConfiguration({
             versions,
             refScope: { type: "site" },
+            productFileSubstitutions: undefined,
             absolutePathToFernFolder,
             context,
             folderTitleSource,

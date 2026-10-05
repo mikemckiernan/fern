@@ -70,67 +70,86 @@ export function getAllPages({
 export type GetPageSubstituter = (file?: AbsoluteFilePath) => docsYml.PageSubstituter;
 
 /**
- * Builds one {@link docsYml.PageSubstituter} per version and per unversioned product (plus
- * one for pages outside both) and returns a lookup from page path to the substituter that
- * applies to it.
+ * Builds one {@link docsYml.PageSubstituter} per version and per product (plus one for pages
+ * outside both) and returns a lookup from page path to the substituter that applies to it.
+ *
+ * A page listed in more than one product uses the substitutions of the last of those products
+ * in docs.yml; `onSharedPage` receives a message for each such page.
  */
 export function createPageSubstituters({
     navigation,
     siteConfig,
     context,
-    preview
+    preview,
+    onSharedPage
 }: {
     navigation: docsYml.DocsNavigationConfiguration;
     siteConfig: docsYml.DocsSubstitutionConfig;
     context: docsYml.DocsSubstitutionContext;
     preview: boolean;
+    onSharedPage?: (message: string) => void;
 }): GetPageSubstituter {
     const siteSubstituter = docsYml.createPageSubstituter(undefined, siteConfig, context, { preview });
-    const byPage = new Map<AbsoluteFilePath, docsYml.PageSubstituter>();
-    const setSubstituter = (pages: AbsoluteFilePath[], substituter: docsYml.PageSubstituter) => {
+    const byPage = new Map<AbsoluteFilePath, { substituter: docsYml.PageSubstituter; product: string | undefined }>();
+    const setSubstituter = (
+        pages: AbsoluteFilePath[],
+        substituter: docsYml.PageSubstituter,
+        product: string | undefined
+    ) => {
         for (const page of pages) {
-            byPage.set(page, substituter);
+            const previous = byPage.get(page)?.product;
+            if (previous != null && product != null && previous !== product) {
+                onSharedPage?.(
+                    `${page} is a page in products ${previous} and ${product}. ` +
+                        `The page uses the substitutions of ${product}.`
+                );
+            }
+            byPage.set(page, { substituter, product });
         }
     };
-    for (const version of getAllVersions(navigation)) {
-        setSubstituter(
-            getAllPages({ landingPage: version.landingPage, navigation: version.navigation }),
-            docsYml.createPageSubstituter(version.substitutions, siteConfig, context, { preview })
-        );
-    }
-    for (const product of getUnversionedProducts(navigation)) {
-        setSubstituter(
-            getAllPages({ landingPage: product.landingPage, navigation: product.navigation }),
-            docsYml.createProductPageSubstituter(product.substitutions, siteConfig, context, { preview })
-        );
-    }
-    return (file) => (file != null ? byPage.get(file) : undefined) ?? siteSubstituter;
-}
-
-function getUnversionedProducts(navigation: docsYml.DocsNavigationConfiguration): docsYml.InternalProduct[] {
-    if (navigation.type !== "productgroup") {
-        return [];
-    }
-    return navigation.products.filter(
-        (product): product is docsYml.InternalProduct =>
-            product.type === "internal" && product.navigation.type !== "versioned"
-    );
-}
-
-function getAllVersions(navigation: docsYml.DocsNavigationConfiguration): docsYml.VersionInfo[] {
+    const setVersionSubstituters = (versions: docsYml.VersionInfo[], product: string | undefined) => {
+        for (const version of versions) {
+            setSubstituter(
+                getAllPages({ landingPage: version.landingPage, navigation: version.navigation }),
+                docsYml.createPageSubstituter(version.substitutions, siteConfig, context, { preview }),
+                product
+            );
+        }
+    };
     switch (navigation.type) {
         case "tabbed":
         case "untabbed":
-            return [];
+            break;
         case "versioned":
-            return navigation.versions;
+            setVersionSubstituters(navigation.versions, undefined);
+            break;
         case "productgroup":
-            return navigation.products.flatMap((product) =>
-                product.type === "external" ? [] : getAllVersions(product.navigation)
-            );
+            for (const product of navigation.products) {
+                if (product.type === "external") {
+                    continue;
+                }
+                const productSubstituter = docsYml.createProductPageSubstituter(
+                    product.substitutions,
+                    siteConfig,
+                    context,
+                    { preview }
+                );
+                if (product.navigation.type === "versioned") {
+                    setSubstituter(compact([product.landingPage?.absolutePath]), productSubstituter, product.product);
+                    setVersionSubstituters(product.navigation.versions, product.product);
+                } else {
+                    setSubstituter(
+                        getAllPages({ landingPage: product.landingPage, navigation: product.navigation }),
+                        productSubstituter,
+                        product.product
+                    );
+                }
+            }
+            break;
         default:
             assertNever(navigation);
     }
+    return (file) => (file != null ? byPage.get(file)?.substituter : undefined) ?? siteSubstituter;
 }
 
 function getAllPagesFromNavigationConfig(navigation: docsYml.DocsNavigationConfiguration): AbsoluteFilePath[] {

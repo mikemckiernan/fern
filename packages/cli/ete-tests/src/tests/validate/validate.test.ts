@@ -124,6 +124,107 @@ navigation:
         }
     }, 90_000);
 
+    it("check resolves product-file substitutions on the landing page of a versioned product", async ({ signal }) => {
+        const fixture = await createTempFixture({
+            "fern/fern.config.json": FERN_CONFIG_JSON,
+            "fern/docs.yml": `instances:
+  - url: test.docs.buildwithfern.com
+
+title: Release
+
+substitutions:
+  vendor: NVIDIA
+
+products:
+  - display-name: Widget
+    path: products/widget.yml
+    slug: widget
+    versions:
+      - display-name: Dev
+        path: products/widget-dev.yml
+        slug: dev
+`,
+            "fern/products/widget.yml": `substitutions:
+  version: v2.0.0
+
+landing-page:
+  page: Welcome
+  path: welcome.mdx
+
+navigation:
+  - page: Home
+    path: home.mdx
+`,
+            "fern/products/widget-dev.yml": `navigation:
+  - page: Home
+    path: home.mdx
+`,
+            "fern/products/welcome.mdx": "# Welcome to \${vendor} Widget \${version}\n",
+            "fern/products/home.mdx": "# Widget \${version}\n"
+        });
+
+        try {
+            const { exitCode, stdout } = await runFernCli(["check"], {
+                cwd: fixture.path,
+                signal
+            });
+
+            expect(exitCode).toBe(0);
+            expect(stripAnsi(stdout)).toContain("All checks passed");
+        } finally {
+            await fixture.cleanup();
+        }
+    }, 90_000);
+
+    it("check logs a warning for a page listed in two products", async ({ signal }) => {
+        const fixture = await createTempFixture({
+            "fern/fern.config.json": FERN_CONFIG_JSON,
+            "fern/docs.yml": `instances:
+  - url: test.docs.buildwithfern.com
+
+title: Release
+
+products:
+  - display-name: Widget
+    path: products/widget.yml
+    slug: widget
+  - display-name: Gadget
+    path: products/gadget.yml
+    slug: gadget
+`,
+            "fern/products/widget.yml": `substitutions:
+  version: v1.0.0
+
+navigation:
+  - page: Shared
+    path: shared.mdx
+`,
+            "fern/products/gadget.yml": `substitutions:
+  version: v2.0.0
+
+navigation:
+  - page: Shared
+    path: shared.mdx
+`,
+            "fern/products/shared.mdx": "# Shared \${version}\n"
+        });
+
+        try {
+            const { exitCode, stdout, stderr } = await runFernCli(["check"], {
+                cwd: fixture.path,
+                reject: false,
+                signal
+            });
+
+            expect(exitCode).toBe(0);
+            expect(stripAnsi(stdout + stderr)).toContain(
+                "shared.mdx is a page in products Widget and Gadget. The page uses the substitutions of Gadget."
+            );
+        } finally {
+            await fixture.cleanup();
+        }
+    }, 90_000);
+
     it("check fails when a version page uses a name defined in neither the version file nor docs.yml", async ({
         signal
     }) => {
